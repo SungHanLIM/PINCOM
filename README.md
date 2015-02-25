@@ -1,1 +1,0 @@
-#PINCOM(PINnacle of COMputer) : 컴퓨터의 정점
