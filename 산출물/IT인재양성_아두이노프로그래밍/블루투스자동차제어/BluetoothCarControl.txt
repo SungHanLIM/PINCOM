@@ -1,0 +1,213 @@
+------------------
+sunghan_car_test
+------------------
+void initSystem();
+void showMenu();
+void getUserCmd();
+void processCmd();
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  while(!Serial) {
+    ;
+  }
+  Serial.println(__FUNCTION__);
+  initSystem();
+  showMenu();
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  getUserCmd();	
+  processCmd();
+}
+------------------
+funcs
+------------------
+const int dirPin1=2;    //moter_1
+const int dirPin2=3;    //moter_1
+const int dirPin3=4;    //moter_2
+const int dirPin4=5;    //moter_2
+const int speedPin1=9;  //moter_1 speed control pin
+const int speedPin2=10; //moter_2 speed control pin 
+int motorSpeed=175;
+int motorDir=1;
+char inChar;
+
+struct MenuFunc {
+  bool enable;
+  char * pMenu;
+  void (* pFunc)();
+};
+
+//프로토타입만 정렬 - - 가독성  - overview효과
+void controlCar();
+void func2();
+void func3();
+void func4();
+void getDir();
+
+MenuFunc menu_funcs[] = {
+  {false, "Arduino Controlled Blutooth Car", controlCar},
+  {false, "menu item 2", func2},
+  {false, "menu item 3", func3},
+  {false, "menu item 4", func4},
+};
+
+void controlCar()
+{
+  Serial.println("==Arduino Blutooth Car Contril==");
+  Serial.println("w. go forward");
+  Serial.println("s. go backward");
+  Serial.println("a. turn left");
+  Serial.println("d. turn right");
+  Serial.println("x. stop");
+  Serial.println("q. Exit");
+  Serial.println("\nINPUT>  ");
+  
+  while(1){
+    getDir();
+    switch(inChar){
+    case 'w': go_forward(); break;
+    case 's': go_backward(); break;
+    case 'a': turn_left(); break;
+    case 'd': turn_right(); break;
+    case 'x': stop_car(); break;
+    case 'q': showMenu(); 
+    inChar = 0; return;//continue; break;
+    default : break;
+   }
+  }
+}
+void getDir(){
+  while (Serial.available()) {
+  inChar = (char)Serial.read();
+  }
+}
+void go_forward() {
+  pinMode(dirPin1,OUTPUT);
+  pinMode(dirPin2,OUTPUT);
+  pinMode(dirPin3,OUTPUT);
+  pinMode(dirPin4,OUTPUT);
+  motorDir = 1;
+  setMotorDir(motorDir);
+  setMotorSpeed1(motorSpeed);
+  setMotorSpeed2(motorSpeed);
+}
+void go_backward() {
+  pinMode(dirPin1,OUTPUT);
+  pinMode(dirPin2,OUTPUT);
+  pinMode(dirPin3,OUTPUT);
+  pinMode(dirPin4,OUTPUT);
+  motorDir = 0;
+  setMotorDir(motorDir);
+  setMotorSpeed1(motorSpeed);
+  setMotorSpeed2(motorSpeed);
+}
+void turn_left() {
+  pinMode(dirPin1,OUTPUT);
+  pinMode(dirPin2,OUTPUT);
+  pinMode(dirPin3,INPUT);
+  pinMode(dirPin4,INPUT);
+  motorDir = 0;
+  setMotorDir(motorDir);
+  setMotorSpeed1(motorSpeed);
+}
+void turn_right() {
+  pinMode(dirPin1,INPUT);
+  pinMode(dirPin2,INPUT);
+  pinMode(dirPin3,OUTPUT);
+  pinMode(dirPin4,OUTPUT);
+  motorDir = 0;
+  setMotorDir(motorDir);
+  setMotorSpeed2(motorSpeed);
+}
+void stop_car() {
+  setMotorSpeed1(0);
+  setMotorSpeed2(0);
+}
+void func2(){Serial.println(__FUNCTION__);}
+void func3(){Serial.println(__FUNCTION__);}
+void func4(){Serial.println(__FUNCTION__);}
+
+void setMotorDir(int motorDir) {
+  if(motorDir==1) {
+    digitalWrite(dirPin1,HIGH);
+    digitalWrite(dirPin3,HIGH);
+    digitalWrite(dirPin2,LOW);
+    digitalWrite(dirPin4,LOW);
+  } else {
+    digitalWrite(dirPin1,LOW);
+    digitalWrite(dirPin3,LOW);
+    digitalWrite(dirPin2,HIGH);
+    digitalWrite(dirPin4,HIGH);
+  }
+}
+void setMotorSpeed1(int motorSpeed) {
+  analogWrite(speedPin1,motorSpeed);
+}
+void setMotorSpeed2(int motorSpeed) {
+  analogWrite(speedPin2,motorSpeed);
+}
+------------------
+work
+------------------
+static char cmd = '?';
+static String inputString = "";
+static boolean stringComplete = false;
+
+struct MenuFunc;
+extern MenuFunc menu_funcs[];
+
+void initSystem() {}
+void showMenu()
+{ 
+  int i;
+ // Serial.println(__FUNCTION__);  
+  for(i=0;i<sizeof(menu_funcs)/sizeof(menu_funcs[0]);i++) {
+    Serial.print(i+1);
+    Serial.print(". ");
+    Serial.println(menu_funcs[i].pMenu);
+  }
+  Serial.println("\nINPUT> ");  
+}
+
+void getUserCmd()
+{  
+  if (stringComplete) {
+    cmd = inputString[0];
+    inputString = "";
+    if(cmd != '\r' && cmd != '\n') {
+      int cmdIndex = cmd - '0' - 1;
+      int howManyCmds = sizeof(menu_funcs)/sizeof(menu_funcs[0]);
+      if(cmdIndex>=0 && cmdIndex<howManyCmds) {
+          bool * pFuncEn = &menu_funcs[cmdIndex].enable;
+          *pFuncEn = !*pFuncEn;
+      }
+    }
+    stringComplete = false;
+  }
+}
+void processCmd() {
+    int cmdIndex;
+    int howManyCmds = sizeof(menu_funcs)/sizeof(menu_funcs[0]);
+
+    for(cmdIndex=0;cmdIndex<howManyCmds;cmdIndex++) 
+      if(menu_funcs[cmdIndex].enable) {
+        menu_funcs[cmdIndex].pFunc();
+        bool * pFuncEn = &menu_funcs[cmdIndex].enable;
+        *pFuncEn = !*pFuncEn;
+      } 
+}
+void serialEvent() {
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
+    inputString += inChar;
+    //if (inChar == '\n')  
+        stringComplete = true;
+  }
+}
+
+
+

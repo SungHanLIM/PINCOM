@@ -1,0 +1,212 @@
+=============
+_homeControl
+=============
+void initSystem();
+void showMenu();
+void getUserCmd();
+void processCmd();
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  while(!Serial) {
+    ;
+  }
+  Serial.println(__FUNCTION__);
+  initSystem();
+  showMenu();
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  getUserCmd();	
+  processCmd();
+}
+=============
+funcs
+=============
+#include <TimerOne.h>
+const int ledPin = 3;
+
+struct MenuFunc {
+  bool enable;
+  char * pMenu;
+  void (* pFInit)(bool);
+  void (* pFunc)();
+};
+
+void funcLedOnOffInit(bool);
+void funcLedFadingInit(bool); //void func2init(bool);
+void funcSensingButtonInit(bool);
+void funcInterruptButtonInit(bool);
+
+void funcLedOnOff();
+void funcLedFading(); //void func2();
+void funcSensingButton();
+void funcInterruptButton();
+void timerLoop();
+
+MenuFunc menu_funcs[] = {
+  {false, "Led On Off", funcLedOnOffInit, funcLedOnOff},
+  {false, "Led Fading", funcLedFadingInit, funcLedFading},
+  {false, "Button Sensing", funcSensingButtonInit, funcSensingButton},
+  {false, "Button Interrupt", funcInterruptButtonInit, funcInterruptButton},
+  {false, "Timer Interrupt", timerInit, timerLoop},
+};
+
+void funcLedOnOffInit(bool bInit)
+{
+  if(bInit)
+    pinMode(ledPin, OUTPUT);
+}
+
+void funcLedOnOff()
+{  
+  digitalWrite(ledPin, HIGH);
+  delay(1000);
+  digitalWrite(ledPin, LOW);
+  delay(1000);
+}
+
+void funcLedFadingInit(bool bInit){}
+
+extern const int ledPin;
+const int buttonPin = 2;
+int currentButtonState;
+
+void funcSensingButtonInit(bool bInit)
+{
+  if(bInit) {
+    pinMode(ledPin, OUTPUT);
+    pinMode(buttonPin, INPUT);
+  }
+}
+
+int pin = 3;
+volatile int state = LOW;
+void funcInterruptButtonInit(bool bInit)
+{ 
+  if(bInit) { 
+    pinMode(pin, OUTPUT);
+    attachInterrupt(0, blink, CHANGE);
+  } else {
+    detachInterrupt(0); 
+  }
+}
+
+void funcSensingButton()
+{
+  currentButtonState = digitalRead(buttonPin);
+  digitalWrite(ledPin, currentButtonState);
+  Serial.println(currentButtonState);
+}
+
+//int pin = 3;
+//volatile int state = LOW;
+void funcInterruptButton()
+{
+  digitalWrite(pin, state);
+}
+
+void blink()
+{
+  state = !state;
+  Serial.println(__FUNCTION__);
+}
+
+void funcLedFading()
+{
+  int br;
+  for(br=0;br<255;br++) {
+    analogWrite(ledPin, br);
+    delay(4);
+  }
+  for(br=255;br>0;br--) {
+    analogWrite(ledPin, br);
+    delay(4);
+  }
+}
+
+void timerInit(bool bInit) 
+{
+  if(bInit) {
+    pinMode(13, OUTPUT);    
+  
+    Timer1.initialize(100000); // set a timer of length 100000 microseconds (or 0.1 sec - or 10Hz => the led will blink 5 times, 5 cycles of on-and-off, per second)
+    Timer1.attachInterrupt( timerIsr ); // attach the service routine here
+  } else {
+    Timer1.detachInterrupt();
+  }
+}
+
+void timerLoop()
+{
+}
+ 
+void timerIsr()
+{
+    // Toggle LED
+    digitalWrite( 13, digitalRead( 13 ) ^ 1 );
+    Serial.println(__FUNCTION__);
+}
+=============
+work
+=============
+static char cmd = '?';
+static String inputString = "";
+static boolean stringComplete = false;
+
+struct MenuFunc;
+extern MenuFunc menu_funcs[];
+
+void initSystem() {}
+void showMenu()
+{ 
+  int i;
+ // Serial.println(__FUNCTION__);  
+  for(i=0;i<sizeof(menu_funcs)/sizeof(menu_funcs[0]);i++) {
+    Serial.print(i+1);
+    Serial.print(". ");
+    Serial.println(menu_funcs[i].pMenu);
+  }
+  Serial.println("\nINPUT> ");  
+}
+
+void getUserCmd()
+{  
+  if (stringComplete) {
+    cmd = inputString[0];
+    inputString = "";
+    if(cmd != '\r' && cmd != '\n') {
+      int cmdIndex = cmd - '0' - 1;
+      int howManyCmds = sizeof(menu_funcs)/sizeof(menu_funcs[0]);
+      if(cmdIndex>=0 && cmdIndex<howManyCmds) {
+          bool * pFuncEn = &menu_funcs[cmdIndex].enable;
+          *pFuncEn = !*pFuncEn;
+          menu_funcs[cmdIndex].pFInit(*pFuncEn);//---
+      }
+    }
+    stringComplete = false;
+  }
+}
+void processCmd() {
+    int cmdIndex;
+    int howManyCmds = sizeof(menu_funcs)/sizeof(menu_funcs[0]);
+
+    for(cmdIndex=0;cmdIndex<howManyCmds;cmdIndex++) 
+      if(menu_funcs[cmdIndex].enable) {
+        menu_funcs[cmdIndex].pFunc();
+        bool * pFuncEn = &menu_funcs[cmdIndex].enable;
+        *pFuncEn = !*pFuncEn;
+      } 
+}
+void serialEvent() {
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
+    inputString += inChar;
+    //if (inChar == '\n')  
+        stringComplete = true;
+  }
+}
+
+
